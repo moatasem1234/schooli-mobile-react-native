@@ -1,20 +1,8 @@
 // src/store/authSlice.ts
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { RootState, AppDispatch, AppThunk } from './store';
-import Api, { axios } from '../api/axios'; // Import the axios instance you exported
-
-interface AuthState {
-  user: User | null;
-  token: string | null;
-  isLoading: boolean;
-  error: string | null;
-}
-
-interface User {
-  id: number;
-  name: string;
-  email: string;
-}
+import Api, { axios } from '../api/axios';
+import { AuthState, User } from '../types/auth';
 
 interface LoginCredentials {
   email: string;
@@ -28,14 +16,12 @@ const initialState: AuthState = {
   error: null,
 };
 
-// Create async thunk for login
-
 export const login = createAsyncThunk(
   'auth/login',
   async (credentials: LoginCredentials, { rejectWithValue }) => {
     try {
       const response = await Api.post('/auth/login', credentials);
-      return response.data;
+      return response.data; // Expecting { user: User, token: string }
     } catch (error) {
       if (axios.isAxiosError(error)) {
         return rejectWithValue(error.response?.data?.message || error.message);
@@ -44,6 +30,7 @@ export const login = createAsyncThunk(
     }
   }
 );
+
 const authSlice = createSlice({
   name: 'auth',
   initialState,
@@ -75,3 +62,16 @@ const authSlice = createSlice({
 
 export const { logout } = authSlice.actions;
 export default authSlice.reducer;
+
+
+// Add to the bottom of authSlice.ts
+export const selectUser = (state: RootState) => state.auth.user;
+export const selectRoles = (state: RootState) => state.auth.user?.roles || [];
+export const selectPermissions = (state: RootState) => state.auth.user?.permissions || [];
+export const selectIsAuthenticated = (state: RootState) => !!state.auth.token;
+export const hasPermission = (state: RootState, permissionSlug: string): boolean => {
+  return state.auth.user?.permissions.some((p) => p.slug === permissionSlug) || false;
+};
+export const hasRole = (state: RootState, roleSlug: string): boolean => {
+  return state.auth.user?.roles.some((r) => r.slug === roleSlug) || false;
+};

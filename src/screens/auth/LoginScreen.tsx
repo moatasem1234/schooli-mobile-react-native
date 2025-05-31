@@ -20,7 +20,7 @@ import {login} from '../../store/authSlice';
 const LoginScreen = ({navigation, setIsAuthenticated}) => {
   const {token} = useSelector((state: RootState) => state.auth);
   const dispatch = useDispatch();
-  const [email, setEmail] = useState<string>('test@gmail.com');
+  const [email, setEmail] = useState<string>('ahmed.teacher@school.com');
   const [password, setPassword] = useState<string>('12345678');
   const [showPassword, setShowPassword] = useState(false);
   const {isLoading} = useSelector((state: RootState) => state.auth);
