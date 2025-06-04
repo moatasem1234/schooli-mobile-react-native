@@ -1,24 +1,60 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Alert } from 'react-native';
-import { Picker } from '@react-native-picker/picker';
+import React, {useState, useEffect, useRef} from 'react';
+import {
+  View,
+  Text,
+  TextInput,
+  StyleSheet,
+  TouchableOpacity,
+  ScrollView,
+  ActivityIndicator,
+  Alert,
+} from 'react-native';
+import {Picker} from '@react-native-picker/picker';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import { useSelector } from 'react-redux';
+import {useSelector} from 'react-redux';
 import {
   useGetStudentsQuery,
   useCreateStudentMutation,
   useUpdateStudentMutation,
   useDeleteStudentMutation,
 } from '../store/api/studentApi';
-import { hasPermission } from '../store/authSlice';
-import { StudentPayload } from '../types/student';
-import { RootState } from '../store/store';
+import {hasPermission} from '../store/authSlice';
+import {StudentPayload} from '../types/student';
+import {RootState} from '../store/store';
+import {useGetParentsQuery} from '../store/api/parentApi';
+import {useGetClassroomsQuery} from '../store/api/classroomApi';
+
+import PullToRefresh from '../components/PullToRefresh'; // Import the custom component
+import useRefresh from '../hooks/useRefresh'; // Adjust the import path
 
 const StudentScreen: React.FC = () => {
-  const state = useSelector((state: RootState) => state);
-  const canViewStudents = hasPermission(state, 'view-students');
+  const canViewStudents = useSelector((state: RootState) =>
+    hasPermission(state, 'view-students'),
+  );
+
+
 
   // RTK Query hooks
-  const { data: studentsResponse, isLoading, error } = useGetStudentsQuery();
+  const {
+    data: studentsResponse,
+    isLoading: studentsIsLoading,
+    error: studentsError,
+    refetch: refetchStudents,
+  } = useGetStudentsQuery();
+  const {
+    data: parentsResponse,
+    isLoading: parentsIsLoading,
+    error: parentsError,
+    refetch: refetchParents,
+  } = useGetParentsQuery();
+
+  const {
+    data: classroomsResponse,
+    isLoading: classroomsIsLoading,
+    error: classroomsError,
+    refetch: refetchClassrooms,
+  } = useGetClassroomsQuery();
+
   const [createStudent] = useCreateStudentMutation();
   const [updateStudent] = useUpdateStudentMutation();
   const [deleteStudent] = useDeleteStudentMutation();
@@ -39,24 +75,42 @@ const StudentScreen: React.FC = () => {
   }, [studentsResponse]);
 
   // Handle form input changes
-  const handleInputChange = (name: keyof StudentPayload, value: string | number) => {
-    setFormData((prev) => ({
+  const handleInputChange = (
+    name: keyof StudentPayload,
+    value: string | number,
+  ) => {
+    setFormData(prev => ({
       ...prev,
-      [name]: name === 'parent_id' || name === 'classroom_id' ? Number(value) : value,
+      [name]:
+        name === 'parent_id' || name === 'classroom_id' ? Number(value) : value,
     }));
   };
-
+  // Handle refresh
+  const {refreshing, handleRefresh} = useRefresh([
+    refetchStudents,
+    refetchParents,
+    refetchClassrooms,
+  ]);
   // Handle form submission for create/update
   const handleSubmit = async () => {
     try {
       if (editingId) {
-        await updateStudent({ id: editingId, data: formData }).unwrap();
+        await updateStudent({id: editingId, data: formData}).unwrap();
         setEditingId(null);
       } else {
         await createStudent(formData).unwrap();
       }
-      setFormData({ name: '', gender: '', birth_date: '', parent_id: 0, classroom_id: 0 });
-      Alert.alert('نجاح', editingId ? 'تم تحديث الطالب بنجاح' : 'تم إنشاء الطالب بنجاح');
+      setFormData({
+        name: '',
+        gender: '',
+        birth_date: '',
+        parent_id: 0,
+        classroom_id: 0,
+      });
+      Alert.alert(
+        'نجاح',
+        editingId ? 'تم تحديث الطالب بنجاح' : 'تم إنشاء الطالب بنجاح',
+      );
     } catch (err: any) {
       Alert.alert('خطأ', err?.data?.message || 'حدث خطأ');
       console.error('Error:', err);
@@ -64,7 +118,7 @@ const StudentScreen: React.FC = () => {
   };
 
   // Handle edit button click
-  const handleEdit = (student: StudentPayload & { id: number }) => {
+  const handleEdit = (student: StudentPayload & {id: number}) => {
     setFormData({
       name: student.name,
       gender: student.gender,
@@ -86,6 +140,9 @@ const StudentScreen: React.FC = () => {
     }
   };
 
+  console.log('Students Response:', studentsResponse);
+  console.log('Parents Response:', parentsResponse);
+
   if (!canViewStudents) {
     return (
       <ScrollView style={styles.container}>
@@ -97,119 +154,161 @@ const StudentScreen: React.FC = () => {
     );
   }
 
+      <View style={{ flex: 1 }}> {/* Parent must have flex: 1 */}
+      <PullToRefresh refreshing={refreshing} onRefresh={handleRefresh}>
+        <View style={{ height: 2000, backgroundColor: 'red' }}>
+          <Text>Scrollable content</Text>
+        </View>
+      </PullToRefresh>
+    </View>
+
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>إدارة الطلاب</Text>
-      </View>
-
-      {isLoading && <ActivityIndicator size="large" color="#00C4B4" />}
-      {error && (
-        <Text style={styles.errorText}>خطأ: {JSON.stringify(error)}</Text>
-      )}
-
-      {/* Form for creating/updating students */}
-      <View style={styles.form}>
-        <Text style={styles.label}>الاسم</Text>
-        <TextInput
-          style={styles.input}
-          value={formData.name}
-          onChangeText={(value) => handleInputChange('name', value)}
-          placeholder="أدخل اسم الطالب"
-          autoCapitalize="words"
-        />
-
-        <Text style={styles.label}>الجنس</Text>
-        <View style={styles.pickerContainer}>
-          <Picker
-            style={styles.picker}
-            mode="dropdown" 
-            dropdownIconColor={'#8E8E93'}
-            selectionColor={'#00C4B4'}
-            itemStyle={{ color: '#8E8E93',  fontFamily: 'Tajawal-Regular' }}
-            collapsable={false}
-            selectedValue={formData.gender}
-            onValueChange={(value) => handleInputChange('gender', value)}
-          >
-            <Picker.Item label="اختر الجنس" value="" />
-            <Picker.Item label="ذكر" value="male" />
-            <Picker.Item label="أنثى" value="female" />
-          </Picker>
+    <View style={styles.container}>
+      <PullToRefresh refreshing={refreshing} onRefresh={handleRefresh}>
+        <View style={styles.header}>
+          <Text style={styles.title}>إدارة الطلاب</Text>
         </View>
 
-        <Text style={styles.label}>تاريخ الميلاد</Text>
-        <TextInput
-          style={styles.input}
-          value={formData.birth_date}
-          onChangeText={(value) => handleInputChange('birth_date', value)}
-          placeholder="YYYY-MM-DD"
-          placeholderTextColor="#8E8E93"
-        />
+        {studentsIsLoading && (
+          <ActivityIndicator size="large" color="#00C4B4" />
+        )}
+        {studentsError && (
+          <Text style={styles.errorText}>
+            خطأ: {JSON.stringify(studentsError)}
+          </Text>
+        )}
 
-        <Text style={styles.label}>معرف ولي الأمر</Text>
-        <TextInput
-          style={styles.input}
-          value={formData.parent_id ? formData.parent_id.toString() : ''}
-          onChangeText={(value) => handleInputChange('parent_id', value)}
-          keyboardType="numeric"
-          placeholder="أدخل معرف ولي الأمر"
-          placeholderTextColor="#8E8E93"
-        />
+        {/* Form for creating/updating students */}
+        <View style={styles.form}>
+          <Text style={styles.label}>الاسم</Text>
+          <TextInput
+            style={styles.input}
+            value={formData.name}
+            onChangeText={value => handleInputChange('name', value)}
+            placeholder="أدخل اسم الطالب"
+            autoCapitalize="words"
+            placeholderTextColor="#8E8E93"
+          />
 
-        <Text style={styles.label}>معرف الصف</Text>
-        <TextInput
-          style={styles.input}
-          value={formData.classroom_id ? formData.classroom_id.toString() : ''}
-          onChangeText={(value) => handleInputChange('classroom_id', value)}
-          keyboardType="numeric"
-          placeholder="أدخل معرف الصف"
-          placeholderTextColor="#8E8E93"
-        />
-
-        <TouchableOpacity style={styles.button} onPress={handleSubmit}>
-          <Text style={styles.buttonText}>{editingId ? 'تحديث الطالب' : 'إضافة طالب'}</Text>
-          <Icon name={editingId ? "save" : "add"} size={20} color="#FFFFFF" style={styles.buttonIcon} />
-        </TouchableOpacity>
-      </View>
-
-      {/* List of students */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>قائمة الطلاب</Text>
-        {studentsResponse?.data.map((student) => (
-          <View key={student.id} style={styles.card}>
-            <View style={styles.cardContent}>
-              <Text style={styles.studentName}>{student.name}</Text>
-              <Text style={styles.studentInfo}>
-                <Text style={styles.infoLabel}>الجنس: </Text>
-                {student.gender === 'male' ? 'ذكر' : 'أنثى'}
-              </Text>
-              <Text style={styles.studentInfo}>
-                <Text style={styles.infoLabel}>الصف: </Text>
-                {student.classroom.name}
-              </Text>
-              <Text style={styles.studentInfo}>
-                <Text style={styles.infoLabel}>ولي الأمر: </Text>
-                {student.parent.user.name}
-              </Text>
-            </View>
-            <View style={styles.cardActions}>
-              <TouchableOpacity
-                style={[styles.actionButton, styles.editButton]}
-                onPress={() => handleEdit(student)}
-              >
-                <Icon name="edit" size={18} color="#FFFFFF" />
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.actionButton, styles.deleteButton]}
-                onPress={() => handleDelete(student.id)}
-              >
-                <Icon name="delete" size={18} color="#FFFFFF" />
-              </TouchableOpacity>
-            </View>
+          <Text style={styles.label}>الجنس</Text>
+          <View style={styles.pickerContainer}>
+            <Picker
+              style={styles.picker}
+              mode="dropdown"
+              dropdownIconColor={'#8E8E93'}
+              selectionColor={'#00C4B4'}
+              itemStyle={{color: '#8E8E93', fontFamily: 'Tajawal-Regular'}}
+              collapsable={false}
+              selectedValue={formData.gender}
+              onValueChange={value => handleInputChange('gender', value)}>
+              <Picker.Item label="اختر الجنس" value="" />
+              <Picker.Item label="ذكر" value="male" />
+              <Picker.Item label="أنثى" value="female" />
+            </Picker>
           </View>
-        ))}
-      </View>
-    </ScrollView>
+
+          <Text style={styles.label}>ولي الأمر</Text>
+          <View style={styles.pickerContainer}>
+            <Picker
+              style={styles.picker}
+              mode="dropdown"
+              dropdownIconColor={'#8E8E93'}
+              selectionColor={'#00C4B4'}
+              itemStyle={{color: '#8E8E93', fontFamily: 'Tajawal-Regular'}}
+              collapsable={false}
+              selectedValue={formData.parent_id}
+              onValueChange={value => handleInputChange('parent_id', value)}>
+              <Picker.Item label="اختر ولي الأمر" value={0} />
+              {parentsResponse?.data.map(parent => (
+                <Picker.Item
+                  key={parent.id}
+                  label={parent.user.name}
+                  value={parent.id}
+                />
+              ))}
+            </Picker>
+          </View>
+
+          <View style={styles.pickerContainer}>
+            <Picker
+              style={styles.picker}
+              mode="dropdown"
+              dropdownIconColor={'#8E8E93'}
+              selectionColor={'#00C4B4'}
+              itemStyle={{color: '#8E8E93', fontFamily: 'Tajawal-Regular'}}
+              collapsable={false}
+              selectedValue={formData.parent_id}
+              onValueChange={value => handleInputChange('classroom_id', value)}>
+              <Picker.Item label="اختر الصف" value={0} />
+              {classroomsResponse?.data.map(classroom => (
+                <Picker.Item
+                  key={classroom.id}
+                  label={classroom.name}
+                  value={classroom.id}
+                />
+              ))}
+            </Picker>
+          </View>
+
+          <Text style={styles.label}>تاريخ الميلاد</Text>
+          <TextInput
+            style={styles.input}
+            value={formData.birth_date}
+            onChangeText={value => handleInputChange('birth_date', value)}
+            placeholder="YYYY-MM-DD"
+            placeholderTextColor="#8E8E93"
+          />
+
+          <TouchableOpacity style={styles.button} onPress={handleSubmit}>
+            <Text style={styles.buttonText}>
+              {editingId ? 'تحديث الطالب' : 'إضافة طالب'}
+            </Text>
+            <Icon
+              name={editingId ? 'save' : 'add'}
+              size={20}
+              color="#FFFFFF"
+              style={styles.buttonIcon}
+            />
+          </TouchableOpacity>
+        </View>
+
+        {/* List of students */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>قائمة الطلاب</Text>
+          {studentsResponse?.data.map(student => (
+            <View key={student.id} style={styles.card}>
+              <View style={styles.cardContent}>
+                <Text style={styles.studentName}>{student.name}</Text>
+                <Text style={styles.studentInfo}>
+                  <Text style={styles.infoLabel}>الجنس: </Text>
+                  {student.gender === 'male' ? 'ذكر' : 'أنثى'}
+                </Text>
+                <Text style={styles.studentInfo}>
+                  <Text style={styles.infoLabel}>الصف: </Text>
+                  {student.classroom.name}
+                </Text>
+                <Text style={styles.studentInfo}>
+                  <Text style={styles.infoLabel}>ولي الأمر: </Text>
+                  {student.parent.user.name}
+                </Text>
+              </View>
+              <View style={styles.cardActions}>
+                <TouchableOpacity
+                  style={[styles.actionButton, styles.editButton]}
+                  onPress={() => handleEdit(student)}>
+                  <Icon name="edit" size={18} color="#FFFFFF" />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.actionButton, styles.deleteButton]}
+                  onPress={() => handleDelete(student.id)}>
+                  <Icon name="delete" size={18} color="#FFFFFF" />
+                </TouchableOpacity>
+              </View>
+            </View>
+          ))}
+        </View>
+      </PullToRefresh>
+    </View>
   );
 };
 

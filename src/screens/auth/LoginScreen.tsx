@@ -9,6 +9,7 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  Image,
   ScrollView,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
@@ -63,7 +64,12 @@ const LoginScreen = ({navigation, setIsAuthenticated}) => {
         {/* Logo and Header */}
         <View style={styles.header}>
           <View style={styles.logoContainer}>
-            <Icon name="school" size={60} color="#00C4B4" />
+            {/* <Icon name="school" size={60} color="#00C4B4" /> */}
+            <Image
+              source={require('../../assets/iamges/logo.jpeg')}
+              style={{width: 80, height: 80 ,borderRadius: 40}}
+              resizeMode="contain"
+            />
           </View>
           <Text style={styles.appTitle}>مدرستي</Text>
           <Text style={styles.welcomeText}>مرحباً بك مرة أخرى</Text>
@@ -127,9 +133,9 @@ const LoginScreen = ({navigation, setIsAuthenticated}) => {
           </View>
 
           {/* Forgot Password */}
-          <TouchableOpacity style={styles.forgotPasswordContainer}>
-            <Text style={styles.forgotPasswordText}>نسيت كلمة المرور؟</Text>
-          </TouchableOpacity>
+          {/* <TouchableOpacity style={styles.forgotPasswordContainer}> */}
+            {/* <Text style={styles.forgotPasswordText}>نسيت كلمة المرور؟</Text> */}
+          {/* </TouchableOpacity> */}
 
           {/* Login Button */}
           <TouchableOpacity
@@ -166,12 +172,12 @@ const LoginScreen = ({navigation, setIsAuthenticated}) => {
           </View> */}
 
           {/* Register Link */}
-          <View style={styles.registerContainer}>
-            <TouchableOpacity onPress={() => navigation.navigate('Register')}>
-              <Text style={styles.registerLinkText}>إنشاء حساب جديد</Text>
-            </TouchableOpacity>
-            <Text style={styles.registerText}>ليس لديك حساب؟ </Text>
-          </View>
+          {/* <View style={styles.registerContainer}> */}
+            {/* <TouchableOpacity onPress={() => navigation.navigate('Register')}> */}
+              {/* <Text style={styles.registerLinkText}>إنشاء حساب جديد</Text> */}
+            {/* </TouchableOpacity> */}
+            {/* <Text style={styles.registerText}>ليس لديك حساب؟ </Text> */}
+          {/* </View> */}
         </View>
       </ScrollView>
     </KeyboardAvoidingView>

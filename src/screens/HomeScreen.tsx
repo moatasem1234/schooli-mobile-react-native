@@ -2,8 +2,13 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import { useSelector } from 'react-redux';
+import { selectUser } from '../store/authSlice';
 
 const HomeScreen = () => {
+
+    const user = useSelector(selectUser);
+
   const quickStats = [
     { title: 'الحضور اليوم', value: '98%', icon: 'how-to-reg', color: '#00C4B4' },
     { title: 'الحصص المتبقية', value: '3', icon: 'schedule', color: '#4682B4' },
@@ -15,7 +20,7 @@ const HomeScreen = () => {
     <ScrollView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.welcomeText}>أهلاً وسهلاً</Text>
-        <Text style={styles.nameText}>محمد أحمد</Text>
+        <Text style={styles.nameText}>{user?.name}</Text>
       </View>
 
       <View style={styles.statsContainer}>
@@ -42,10 +47,7 @@ const HomeScreen = () => {
             </View>
           </View>
           <View style={styles.timeRemaining}>
-            <Text style={styles.timeRemainingText}>15 دقيقة</Text>
-            <Text style={styles.timeRemainingLabel}>متبقية</Text>
-            <Text style={styles.timeRemainingLabel}>لازم احسب الوقت</Text>
-
+    
           </View>
         </View>
       </View>

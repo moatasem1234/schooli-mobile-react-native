@@ -1,10 +1,9 @@
 import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
-import {NavigationContainer} from '@react-navigation/native';
+import {NavigationContainer, useNavigation} from '@react-navigation/native';
 import {createStackNavigator} from '@react-navigation/stack';
 import React, {useEffect, useState, useMemo} from 'react';
 import {useSelector} from 'react-redux';
 import {RootState} from './store/store';
-
 import {Colors} from 'react-native/Libraries/NewAppScreen';
 import HomeScreen from './screens/HomeScreen';
 import TimetableScreen from './screens/TimetableScreen';
@@ -16,22 +15,36 @@ import RegisterScreen from './screens/auth/RegisterScreen';
 import {I18nManager, StatusBar} from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import AuthProvider from './providers/AuthProvider';
-import {hasPermission, hasRole} from './store/authSlice';
+import {hasPermission, hasRole, selectUser} from './store/authSlice';
 import StudentScreen from './screens/StudentScreen';
 import ProfileScreen from './screens/ProfileSrceen';
+import ParentScreen from './screens/ParentScreen';
+import ConversationsScreen from './screens/chat/ConversationsScreen';
+import StartConversationScreen from './screens/chat/StartConversationScreen';
+import ChatScreen from './screens/chat/ChatScreen';
 
 I18nManager.allowRTL(true);
 I18nManager.forceRTL(true);
 
 function MyApp(): React.JSX.Element {
   // Combine all selectors into a single useSelector call
-  const authState = useSelector((state: RootState) => state);
-  const token = authState.auth.token;
-  const isParent = hasRole(authState, 'parent');
-  const isAdmin = hasRole(authState, 'admin');
-  const isTeacher = hasRole(authState, 'teacher');
-  const canViewStudents = hasPermission(authState, 'view-students');
+  const token = useSelector((state: RootState) => state.auth.token);
+  const user = useSelector(selectUser);
 
+  // For role checks
+  const isParent = useSelector((state: RootState) => hasRole(state, 'parent'));
+  const isAdmin = useSelector((state: RootState) => hasRole(state, 'admin'));
+  const isTeacher = useSelector((state: RootState) =>
+    hasRole(state, 'teacher'),
+  );
+
+  // For permission checks
+  const canViewStudents = useSelector((state: RootState) =>
+    hasPermission(state, 'view-students'),
+  );
+  const canViewParentStudents = useSelector((state: RootState) =>
+    hasPermission(state, 'view-parent_students'),
+  );
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
 
   const Tab = createBottomTabNavigator();
@@ -39,14 +52,19 @@ function MyApp(): React.JSX.Element {
 
   // Sync isAuthenticated with token
   useEffect(() => {
-    setIsAuthenticated(!!token);
+    const timer = setTimeout(() => {
+      setIsAuthenticated(!!token);
+    }, 100); // 1000 milliseconds = 1 second
+
+    // Cleanup function to clear the timeout if the component unmounts
+    return () => clearTimeout(timer);
   }, [token]);
 
   // Memoize MainTabNavigator to prevent re-creation on every render
   const MainTabNavigator = useMemo(() => {
     return () => (
       <Tab.Navigator
-        initialRouteName="Home"
+        initialRouteName="profile"
         screenOptions={({route}) => ({
           tabBarIcon: ({focused, color, size}) => {
             let iconName;
@@ -61,8 +79,12 @@ function MyApp(): React.JSX.Element {
               iconName = 'schedule';
             } else if (route.name === 'students') {
               iconName = 'people';
+            } else if (route.name === 'parents') {
+              iconName = 'people';
             } else if (route.name === 'profile') {
               iconName = 'person';
+            } else if (route.name === 'Chat') {
+              iconName = 'chat';
             }
             //@ts-ignore
             return <Icon name={iconName} size={size} color={color} />;
@@ -82,36 +104,70 @@ function MyApp(): React.JSX.Element {
           component={ProfileScreen}
           options={{title: 'الملف الشخصي'}}
         />
-        {canViewStudents && (
+
+        {canViewStudents && isTeacher && (
           <Tab.Screen
             name="students"
             component={StudentScreen}
             options={{title: 'الطلاب'}}
           />
         )}
-        <Tab.Screen
-          name="Timetable"
-          component={TimetableScreen}
-          options={{title: 'الجدول'}}
-        />
-        <Tab.Screen
-          name="Attendance"
-          component={AttendanceScreen}
-          options={{title: 'الحضور'}}
-        />
-        <Tab.Screen
-          name="Calendar"
-          component={CalendarScreen}
-          options={{title: 'التقويم'}}
-        />
-        <Tab.Screen
-          name="Home"
-          component={HomeScreen}
-          options={{title: 'الرئيسية'}}
-        />
+        {canViewParentStudents && isTeacher && (
+          <Tab.Screen
+            name="parents"
+            component={ParentScreen}
+            options={{title: 'الآباء'}}
+          />
+        )}
+        {isParent && (
+          <>
+            <Tab.Screen
+              name="Timetable"
+              component={TimetableScreen}
+              options={{title: 'الجدول'}}
+            />
+            <Tab.Screen
+              name="Attendance"
+              component={AttendanceScreen}
+              options={{title: 'الحضور'}}
+            />
+            <Tab.Screen
+              name="Home"
+              component={HomeScreen}
+              options={{title: 'الرئيسية'}}
+            />
+            <Tab.Screen
+              name="Calendar"
+              component={CalendarScreen}
+              options={{title: 'التقويم'}}
+            />
+          </>
+        )}
+        {(isParent || isTeacher) && (
+          <Tab.Screen
+            name="Chat"
+            component={ChatStackNavigator}
+            options={{title: 'المحادثات'}}
+          />
+        )}
       </Tab.Navigator>
     );
-  }, [canViewStudents]); // Only re-create if canViewStudents changes
+  }, [canViewStudents, canViewParentStudents, isParent, isTeacher]); // Re-create if permissions or roles change
+
+  // Define Chat Stack Navigator
+  const ChatStackNavigator = () => (
+    <Stack.Navigator screenOptions={{headerShown: false}}>
+      <Stack.Screen
+        name="ConversationsScreen"
+        component={ConversationsScreen}
+      />
+      <Stack.Screen
+        name="StartConversationScreen"
+        component={StartConversationScreen}
+      />
+      <Stack.Screen name="ChatScreen" component={ChatScreen} />
+    </Stack.Navigator>
+  );
 
   return (
     <>

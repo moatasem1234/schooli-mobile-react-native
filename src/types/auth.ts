@@ -31,9 +31,6 @@ export interface User {
   name: string;
   email: string;
   gender?: string; // Optional, based on JSON
-  address?: string; // Optional
-  phone?: string; // Optional
-  image?: string | null; // Optional
   created_at?: string; // Optional
   updated_at?: string; // Optional
   roles: Role[];
